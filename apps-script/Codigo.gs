@@ -1,31 +1,17 @@
 /**
  * Votación del concurso de camisetas · Hogar Nueva España
- * Pegar en: Hoja de Google > Extensiones > Apps Script
+ * Proyecto de Apps Script independiente, conectado a la Hoja por su ID.
  */
 const CONFIG = {
   APERTURA: '2026-12-01T00:00:00+01:00',
   CIERRE:   '2026-12-05T23:59:59+01:00',
-  NUM_DISENOS: 12,
+  NUM_DISENOS: 11,
+  HOJA_ID: '1jOjZnBfNyd7U6WJeem1Zvl43mURH5J1h3afu3lTGAjA', // Hoja "Votos concurso camisetas"
   HOJA_VOTOS: 'Votos',
   HOJA_RESULTADOS: 'Resultados'
 };
 
-/** Ejecutar UNA vez a mano (botón ▶) para crear las pestañas. */
-function prepararHoja() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let v = ss.getSheetByName(CONFIG.HOJA_VOTOS);
-  if (!v) v = ss.insertSheet(CONFIG.HOJA_VOTOS);
-  v.getRange(1, 1, 1, 5).setValues([['Fecha', 'Correo (para comprobar duplicados)', 'Nombre y apellidos', 'Diseño', 'Correo tal como lo escribió']]).setFontWeight('bold');
-  v.setFrozenRows(1);
-
-  let r = ss.getSheetByName(CONFIG.HOJA_RESULTADOS);
-  if (!r) r = ss.insertSheet(CONFIG.HOJA_RESULTADOS);
-  r.getRange('A1').setFormula(
-    '=QUERY(' + CONFIG.HOJA_VOTOS + '!D2:D,"select D, count(D) where D is not null group by D order by count(D) desc label D \'Diseño\', count(D) \'Votos\'",0)'
-  );
-  r.getRange('D1').setValue('Total de votos');
-  r.getRange('D2').setFormula('=COUNTA(' + CONFIG.HOJA_VOTOS + '!B2:B)');
-}
+/** La Hoja ya está preparada (pestañas Votos y Resultados). Este script se conecta a ella por su ID. */
 
 function doPost(e) {
   let salida;
@@ -54,10 +40,11 @@ function normalizarCorreo_(email) {
 
 function votar_(datos) {
   const ahora = Date.now();
-  if (ahora < Date.parse(CONFIG.APERTURA) || ahora > Date.parse(CONFIG.CIERRE)) {
-    return { ok: false, error: 'La votación no está abierta.' };
-  }
   const nombre = String(datos.nombre || '').trim().slice(0, 80);
+  const enPlazo = ahora >= Date.parse(CONFIG.APERTURA) && ahora <= Date.parse(CONFIG.CIERRE);
+  // Fuera de plazo solo se aceptan votos de prueba (nombre que empieza por PRUEBA), para borrarlos después
+  const esPrueba = datos.prueba === true && /^prueba/i.test(nombre);
+  if (!enPlazo && !esPrueba) return { ok: false, error: 'La votación no está abierta.' };
   const escrito = String(datos.email || '').trim().slice(0, 120);
   const diseno = Number(datos.diseno);
   if (nombre.length < 3) return { ok: false, error: 'Escribe tu nombre y apellidos.' };
@@ -68,7 +55,7 @@ function votar_(datos) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000); // evita que dos votos del mismo correo entren a la vez
   try {
-    const h = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.HOJA_VOTOS);
+    const h = SpreadsheetApp.openById(CONFIG.HOJA_ID).getSheetByName(CONFIG.HOJA_VOTOS);
     if (!h) throw new Error('Falta la pestaña de votos. Ejecuta prepararHoja().');
     if (h.getLastRow() >= 2) {
       const repetido = h.getRange(2, 2, h.getLastRow() - 1, 1)

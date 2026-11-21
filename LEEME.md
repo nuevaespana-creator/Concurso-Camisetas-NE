@@ -12,13 +12,14 @@ disenos/01.jpg … 12.jpg
 apps-script/Codigo.gs              → código para la Hoja de Google
 ```
 
-## Paso 1 · La Hoja de Google
-1. Crea una Hoja nueva ("Votos camisetas") con la cuenta del Hogar.
-2. *Extensiones → Apps Script* → borra lo que haya y pega `Codigo.gs`. Guarda.
-3. Elige la función `prepararHoja` y pulsa ▶ Ejecutar. Acepta los permisos (si sale "Google no ha verificado esta aplicación": *Configuración avanzada → Ir a…*; es tu propio script). Se crean las pestañas *Votos* y *Resultados*.
-4. *Implementar → Nueva implementación → ⚙ → Aplicación web*:
+## Paso 1 · El servidor (Apps Script)
+La Hoja "Votos concurso camisetas" ya está creada en la carpeta de los diseños, con las pestañas *Votos* y *Resultados*.
+1. Abre la Hoja → *Extensiones → Apps Script*.
+2. Borra lo que haya y pega `apps-script/Codigo.gs`. Guarda (icono del disquete).
+3. *Implementar → Nueva implementación → ⚙ → Aplicación web*:
    - Ejecutar como: **Yo**
    - Quién tiene acceso: **Cualquier usuario**
+4. Autoriza los permisos (si sale "Google no ha verificado esta aplicación": *Configuración avanzada → Ir a…*; es tu propio script).
 5. Copia la URL que termina en `/exec`.
 
 > Si cambias el código después: *Implementar → Gestionar implementaciones → ✏ editar → Versión: Nueva versión*. Así la URL no cambia.
@@ -28,7 +29,9 @@ En `index.html`, dentro de `CONFIG`, pega la URL en `SCRIPT_URL` y súbelo a Git
 Mientras `SCRIPT_URL` esté vacío, la web funciona en **modo demostración** (no guarda nada).
 
 ## Paso 3 · Probar antes de difundir
-Vota y comprueba que aparece en *Votos*. Intenta votar otra vez con el mismo correo: debe decir "Este correo ya ha votado". Borra las filas de prueba.
+Abre la web añadiendo `?prueba` al final de la dirección. En ese modo se puede votar antes del 1 de diciembre, pero solo con un nombre que empiece por **PRUEBA** (por ejemplo "PRUEBA Fer").
+Vota y comprueba que aparece en *Votos*. Intenta votar otra vez con el mismo correo: debe decir "Este correo ya ha votado". Después **borra las filas de prueba** de la pestaña *Votos*.
+Sin `?prueba`, la web no deja votar hasta el 1 de diciembre.
 
 ## Cómo se evita el voto doble
 - La Hoja rechaza un correo que ya ha votado. En Gmail ignora puntos y "+etiquetas" (`ana.perez+1@gmail.com` cuenta como `anaperez@gmail.com`).

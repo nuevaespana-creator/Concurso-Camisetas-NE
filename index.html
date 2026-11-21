@@ -78,6 +78,7 @@
   <img id="visorImg" src="logo.png" alt="">
   <div class="barra-visor">
     <strong id="visorTitulo"></strong>
+    <div class="caras-visor" id="carasVisor" role="group" aria-label="Cara de la camiseta" hidden></div>
     <button class="btn" type="button" id="btnCerrarVisor">Cerrar</button>
   </div>
 </dialog>
@@ -96,9 +97,13 @@
 <script>
 /* ================== CONFIGURACIÓN ================== */
 const CONFIG = {
-  NUM_DISENOS: 12,                 // cuántos diseños hay
+  NUM_DISENOS: 11,                 // cuántos diseños hay
   CARPETA: 'disenos/',             // imágenes: disenos/01.jpg, disenos/02.jpg...
   EXTENSION: '.jpg',
+  // Diseños con varias caras: se alternan solas cada 3 s y en grande se cambian con botones
+  CARAS: {
+    2: [{ archivo: '02.jpg', nombre: 'Delante' }, { archivo: '02-detras.jpg', nombre: 'Detrás' }]
+  },
   SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwIWdCaxmBPqCEPKySBiWgioRct1XwLBJmr9UiKBMIyHVLFwD6pLgCzWmjzCvXlZhKJaQ/exec',
   APERTURA: '2026-12-01T00:00:00+01:00', // votación popular: 1 al 5 de diciembre
   CIERRE:   '2026-12-05T23:59:59+01:00'
@@ -128,16 +133,35 @@ const fmt = s => new Date(s).toLocaleString('es-ES', { dateStyle: 'long', timeSt
 const emailValido = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 
 /* ---------- Galería ---------- */
+const caras = n => (CONFIG.CARAS[n] || [{ archivo: pad(n) + CONFIG.EXTENSION, nombre: '' }])
+  .map(c => ({ src: CONFIG.CARPETA + c.archivo, nombre: c.nombre }));
+
+function abrirVisor(n, i) {
+  const cs = caras(n), cv = $('carasVisor');
+  const mostrar = k => {
+    $('visorImg').src = cs[k].src;
+    $('visorImg').alt = nombreDiseno(n) + (cs[k].nombre ? ', ' + cs[k].nombre.toLowerCase() : '');
+    cv.querySelectorAll('button').forEach((b, j) => b.setAttribute('aria-pressed', j === k));
+  };
+  $('visorTitulo').textContent = nombreDiseno(n);
+  cv.hidden = cs.length < 2;
+  cv.innerHTML = cs.length < 2 ? '' : cs.map(c => `<button class="cara" type="button" aria-pressed="false">${c.nombre}</button>`).join('');
+  cv.querySelectorAll('button').forEach((b, j) => b.onclick = () => mostrar(j));
+  mostrar(i || 0);
+  $('visor').showModal();
+}
+
 function pintarGaleria() {
   const grid = $('grid');
   for (let n = 1; n <= CONFIG.NUM_DISENOS; n++) {
-    const src = CONFIG.CARPETA + pad(n) + CONFIG.EXTENSION;
+    const cs = caras(n), varias = cs.length > 1;
     const card = document.createElement('article');
-    card.className = 'card';
+    card.className = 'card' + (varias ? ' varias' : '');
     card.dataset.n = n;
     card.innerHTML = `
-      <button class="ampliar" type="button" aria-label="Ampliar ${nombreDiseno(n)}">
-        <img src="${src}" alt="${nombreDiseno(n)}" loading="lazy">
+      <button class="ampliar" type="button" aria-label="Ampliar ${nombreDiseno(n)}${varias ? ', delante y detrás' : ''}">
+        ${cs.map((c, i) => `<img src="${c.src}" alt="${nombreDiseno(n)}${c.nombre ? ', ' + c.nombre.toLowerCase() : ''}" loading="lazy"${i ? ' class="otra"' : ' class="activa"'}>`).join('')}
+        ${varias ? `<span class="etiqueta-cara" aria-hidden="true">${cs[0].nombre}</span>` : ''}
         <span class="lupa">Ampliar</span>
       </button>
       <div class="pie">
@@ -147,11 +171,7 @@ function pintarGaleria() {
           <span class="txt">Votar este diseño</span>
         </button>
       </div>`;
-    card.querySelector('.ampliar').onclick = () => {
-      $('visorImg').src = src; $('visorImg').alt = nombreDiseno(n);
-      $('visorTitulo').textContent = nombreDiseno(n);
-      $('visor').showModal();
-    };
+    card.querySelector('.ampliar').onclick = () => abrirVisor(n, Number(card.dataset.cara || 0));
     card.querySelector('.btn-votar').onclick = () => seleccionar(n);
     grid.appendChild(card);
   }
@@ -196,7 +216,7 @@ function actualizar(mensaje) {
   const urnaImg = $('urnaImg'), lleno = !!estado.seleccion;
   $('urna').classList.toggle('llena', lleno);
   urnaImg.hidden = !lleno; $('urnaVacia').hidden = lleno;
-  if (lleno) { urnaImg.src = CONFIG.CARPETA + pad(estado.seleccion) + CONFIG.EXTENSION; urnaImg.alt = nombreDiseno(estado.seleccion); }
+  if (lleno) { urnaImg.src = caras(estado.seleccion)[0].src; urnaImg.alt = nombreDiseno(estado.seleccion); }
 
   document.querySelectorAll('.btn-votar').forEach(b => b.disabled = !abierto);
 
@@ -272,6 +292,18 @@ if (DEMO) $('avisoDemo').hidden = false;
 else if (PRUEBA) { $('avisoDemo').hidden = false; $('avisoDemo').textContent = 'Modo prueba: escribe un nombre que empiece por PRUEBA. Estos votos se guardan en la Hoja y hay que borrarlos después.'; }
 else if (recordar.leer()) estado.yaVotado = true;
 pintarGaleria();
+/* Las caras se alternan cada 3 s; con "reducir movimiento" se quedan quietas y se ven al ampliar */
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  setInterval(() => {
+    document.querySelectorAll('.card.varias').forEach(card => {
+      const imgs = card.querySelectorAll('.ampliar img');
+      const k = (Number(card.dataset.cara || 0) + 1) % imgs.length;
+      card.dataset.cara = k;
+      imgs.forEach((im, j) => im.classList.toggle('activa', j === k));
+      card.querySelector('.etiqueta-cara').textContent = caras(Number(card.dataset.n))[k].nombre;
+    });
+  }, 3000);
+}
 mostrarPeriodo();
 actualizar();
 </script>
