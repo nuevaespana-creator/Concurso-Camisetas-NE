@@ -99,13 +99,14 @@ const CONFIG = {
   NUM_DISENOS: 12,                 // cuántos diseños hay
   CARPETA: 'disenos/',             // imágenes: disenos/01.jpg, disenos/02.jpg...
   EXTENSION: '.jpg',
-  SCRIPT_URL: '',                  // URL de la aplicación web de Apps Script (termina en /exec)
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwIWdCaxmBPqCEPKySBiWgioRct1XwLBJmr9UiKBMIyHVLFwD6pLgCzWmjzCvXlZhKJaQ/exec',
   APERTURA: '2026-12-01T00:00:00+01:00', // votación popular: 1 al 5 de diciembre
   CIERRE:   '2026-12-05T23:59:59+01:00'
 };
 /* =================================================== */
 
 const DEMO = !CONFIG.SCRIPT_URL;
+const PRUEBA = !DEMO && new URLSearchParams(location.search).has('prueba'); // abrir con ?prueba para probar antes del 1 de diciembre
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
 const nombreDiseno = n => 'Diseño ' + pad(n);
@@ -117,7 +118,7 @@ const recordar = { // aviso en este navegador; quien decide es la Hoja
 };
 
 function periodo() {
-  if (DEMO) return 'abierta'; // en demostración se ignoran las fechas
+  if (DEMO || PRUEBA) return 'abierta'; // en demostración y en prueba se ignoran las fechas
   const ahora = Date.now();
   if (ahora < Date.parse(CONFIG.APERTURA)) return 'antes';
   if (ahora > Date.parse(CONFIG.CIERRE)) return 'despues';
@@ -237,11 +238,11 @@ async function enviar() {
   let mensaje;
   try {
     const d = datos();
-    const r = await api({ accion: 'votar', diseno: estado.seleccion, nombre: d.nombre, email: d.email });
-    if (r.ok) { estado.yaVotado = true; if (!DEMO) recordar.guardar(); }
+    const r = await api({ accion: 'votar', diseno: estado.seleccion, nombre: d.nombre, email: d.email, prueba: PRUEBA });
+    if (r.ok) { estado.yaVotado = true; if (!DEMO && !PRUEBA) recordar.guardar(); }
     else {
       mensaje = r.error || 'No se ha podido registrar el voto.';
-      if (/ya ha votado/i.test(mensaje)) { estado.yaVotado = true; recordar.guardar(); }
+      if (/ya ha votado/i.test(mensaje)) { estado.yaVotado = true; if (!PRUEBA) recordar.guardar(); }
     }
   } catch (e) {
     mensaje = 'No hay conexión con el servidor. Inténtalo de nuevo en un momento.';
@@ -268,6 +269,7 @@ if ('IntersectionObserver' in window) { // la barra flotante se oculta cuando ya
   obsUrna.observe($('envio'));
 }
 if (DEMO) $('avisoDemo').hidden = false;
+else if (PRUEBA) { $('avisoDemo').hidden = false; $('avisoDemo').textContent = 'Modo prueba: escribe un nombre que empiece por PRUEBA. Estos votos se guardan en la Hoja y hay que borrarlos después.'; }
 else if (recordar.leer()) estado.yaVotado = true;
 pintarGaleria();
 mostrarPeriodo();
