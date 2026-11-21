@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Votación de camisetas del Hogar</title>
+<meta name="description" content="Vota tu diseño favorito para la nueva camiseta del Hogar Nueva España. Un voto por persona.">
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&family=Spectral:wght@600&display=swap">
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+<header class="barra">
+  <div class="barra-in">
+    <a class="marca" href="./"><img src="logo.png" alt="" width="48" height="48"><span>Hogar Nueva España</span></a>
+    <div class="cuenta" aria-live="polite">
+      <div id="sinSesion"><p class="visually-hidden">Inicia sesión para votar.</p></div>
+      <div id="conSesion" class="usuario" hidden>
+        <img id="uFoto" src="logo.png" alt="" hidden>
+        <p>Votas como <strong id="uNombre"></strong> <span id="uEmail" class="correo"></span><br>
+          <button class="enlace" id="btnSalir" type="button">Usar otra cuenta</button></p>
+      </div>
+      <div id="botonGoogle"></div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="intro">
+    <div>
+      <h1>Elige la nueva camiseta del Hogar</h1>
+      <p class="lead">Mira todos los diseños del concurso y vota tu favorito. Cada persona puede votar una sola vez.</p>
+    </div>
+    <ol class="pasos">
+      <li><span>Inicia sesión arriba con tu cuenta de Google.</span></li>
+      <li><span>Marca tu favorito con «Votar este diseño».</span></li>
+      <li><span>Baja al final y pulsa «Enviar voto». No se puede cambiar.</span></li>
+    </ol>
+  </section>
+
+  <div class="avisos">
+    <div id="avisoDemo" class="demo" hidden>Modo demostración: el inicio de sesión y el envío son simulados. No se guarda ningún voto.</div>
+    <div id="estadoPeriodo" class="estado" hidden></div>
+  </div>
+
+  <section class="papeleta" aria-labelledby="tituloDisenos">
+    <div class="papeleta-cab">
+      <h2 id="tituloDisenos">Los diseños</h2>
+      <p>Pulsa una imagen para verla en grande.</p>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="envio" id="envio" aria-live="polite">
+    <div class="urna" id="urna"><img id="urnaImg" src="logo.png" alt="" hidden><span class="urna-vacia" id="urnaVacia" aria-hidden="true">?</span></div>
+    <div>
+      <h2>Tu voto</h2>
+      <p id="envioTexto">Elige un diseño pulsando «Votar este diseño».</p>
+      <button class="btn btn-prim" id="btnEnviar" type="button" disabled>Enviar voto</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Organización Juvenil Española, Hogar Nueva España. Tu cuenta de Google solo se usa para comprobar que cada persona vota una vez.</p>
+</footer>
+
+<div class="flotante" id="flotante" aria-hidden="true">
+  <span id="flotanteTexto">Diseño elegido</span>
+  <a href="#envio" tabindex="-1">Ir a enviar</a>
+</div>
+
+<dialog id="visor" aria-labelledby="visorTitulo">
+  <img id="visorImg" src="logo.png" alt="">
+  <div class="barra-visor">
+    <strong id="visorTitulo"></strong>
+    <button class="btn" type="button" id="btnCerrarVisor">Cerrar</button>
+  </div>
+</dialog>
+
+<dialog id="confirmar" aria-labelledby="confTitulo">
+  <div class="dlg">
+    <h3 id="confTitulo">¿Enviar tu voto?</h3>
+    <p>Vas a votar el <strong id="confNum"></strong>. Una vez enviado no se puede cambiar.</p>
+    <div class="acciones">
+      <button class="btn" type="button" id="btnVolver">Volver</button>
+      <button class="btn btn-oscuro" type="button" id="btnConfirmar">Sí, enviar voto</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+/* ================== CONFIGURACIÓN ================== */
+const CONFIG = {
+  NUM_DISENOS: 12,                 // cuántos diseños hay
+  CARPETA: 'disenos/',             // imágenes: disenos/01.jpg, disenos/02.jpg...
+  EXTENSION: '.jpg',
+  SCRIPT_URL: '',                  // URL de la aplicación web de Apps Script
+  CLIENT_ID: '',                   // ID de cliente OAuth de Google
+  APERTURA: '2026-12-01T00:00:00+01:00', // votación popular: 1 al 5 de diciembre
+  CIERRE:   '2026-12-05T23:59:59+01:00'
+};
+/* =================================================== */
+
+const DEMO = !CONFIG.SCRIPT_URL || !CONFIG.CLIENT_ID;
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+const nombreDiseno = n => 'Diseño ' + pad(n);
+
+const estado = { seleccion: null, token: null, usuario: null, yaVotado: false, enviando: false };
+
+function periodo() {
+  if (DEMO) return 'abierta'; // en demostración se ignoran las fechas
+  const ahora = Date.now();
+  if (ahora < Date.parse(CONFIG.APERTURA)) return 'antes';
+  if (ahora > Date.parse(CONFIG.CIERRE)) return 'despues';
+  return 'abierta';
+}
+const fmt = s => new Date(s).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Madrid' });
+
+/* ---------- Galería ---------- */
+function pintarGaleria() {
+  const grid = $('grid');
+  for (let n = 1; n <= CONFIG.NUM_DISENOS; n++) {
+    const src = CONFIG.CARPETA + pad(n) + CONFIG.EXTENSION;
+    const card = document.createElement('article');
+    card.className = 'card';
+    card.dataset.n = n;
+    card.innerHTML = `
+      <button class="ampliar" type="button" aria-label="Ampliar ${nombreDiseno(n)}">
+        <img src="${src}" alt="${nombreDiseno(n)}" loading="lazy">
+        <span class="lupa">Ampliar</span>
+      </button>
+      <div class="pie">
+        <p class="num"><span class="num-label">Diseño</span><span class="num-n">${pad(n)}</span></p>
+        <button class="btn-votar" type="button" aria-pressed="false" aria-label="Votar el ${nombreDiseno(n)}">
+          <span class="casilla" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></span>
+          <span class="txt">Votar este diseño</span>
+        </button>
+      </div>`;
+    card.querySelector('.ampliar').onclick = () => {
+      $('visorImg').src = src; $('visorImg').alt = nombreDiseno(n);
+      $('visorTitulo').textContent = nombreDiseno(n);
+      $('visor').showModal();
+    };
+    card.querySelector('.btn-votar').onclick = () => seleccionar(n);
+    grid.appendChild(card);
+  }
+}
+
+function seleccionar(n) {
+  if (estado.yaVotado || periodo() !== 'abierta') return;
+  estado.seleccion = (estado.seleccion === n) ? null : n;
+  document.querySelectorAll('.card').forEach(c => {
+    const sel = Number(c.dataset.n) === estado.seleccion;
+    c.classList.toggle('sel', sel);
+    const b = c.querySelector('.btn-votar');
+    b.querySelector('.txt').textContent = sel ? 'Tu elección' : 'Votar este diseño';
+    b.setAttribute('aria-pressed', sel);
+  });
+  actualizar();
+}
+
+/* ---------- Estado de la interfaz ---------- */
+function actualizar() {
+  const p = periodo();
+  const sesion = !!estado.usuario;
+  const txt = $('envioTexto'), btn = $('btnEnviar');
+  txt.className = '';
+
+  if (p === 'antes') { txt.textContent = 'La votación todavía no está abierta.'; btn.disabled = true; }
+  else if (p === 'despues') { txt.textContent = 'La votación ha terminado. ¡Gracias por participar!'; btn.disabled = true; }
+  else if (estado.yaVotado) { txt.textContent = 'Tu voto está registrado. ¡Gracias por participar!'; txt.className = 'gracias'; btn.disabled = true; }
+  else if (!estado.seleccion) { txt.textContent = 'Elige un diseño pulsando «Votar este diseño».'; btn.disabled = true; }
+  else if (!sesion) { txt.innerHTML = `Has elegido el <span class="elegido">${nombreDiseno(estado.seleccion)}</span>. Inicia sesión arriba para poder enviarlo.`; btn.disabled = true; }
+  else { txt.innerHTML = `Has elegido el <span class="elegido">${nombreDiseno(estado.seleccion)}</span>.`; btn.disabled = estado.enviando; }
+
+  btn.textContent = estado.enviando ? 'Enviando…' : 'Enviar voto';
+  btn.setAttribute('aria-busy', estado.enviando);
+  const urnaImg = $('urnaImg'), lleno = !!estado.seleccion;
+  $('urna').classList.toggle('llena', lleno);
+  urnaImg.hidden = !lleno; $('urnaVacia').hidden = lleno;
+  if (lleno) { urnaImg.src = CONFIG.CARPETA + pad(estado.seleccion) + CONFIG.EXTENSION; urnaImg.alt = nombreDiseno(estado.seleccion); }
+  btn.hidden = estado.yaVotado;
+
+  const bloquear = estado.yaVotado || p !== 'abierta';
+  document.querySelectorAll('.btn-votar').forEach(b => b.disabled = bloquear);
+
+  const f = $('flotante');
+  const verFlotante = estado.seleccion && !estado.yaVotado && p === 'abierta';
+  f.classList.toggle('ver', !!verFlotante);
+  f.setAttribute('aria-hidden', !verFlotante);
+  if (estado.seleccion) $('flotanteTexto').textContent = nombreDiseno(estado.seleccion) + ' elegido';
+}
+
+function mostrarPeriodo() {
+  const p = periodo(), el = $('estadoPeriodo');
+  if (p === 'antes') { el.hidden = false; el.className = 'estado info'; el.textContent = 'La votación se abre el ' + fmt(CONFIG.APERTURA) + '.'; }
+  else if (p === 'despues') { el.hidden = false; el.className = 'estado cerrado'; el.textContent = 'La votación cerró el ' + fmt(CONFIG.CIERRE) + '.'; }
+  else { el.hidden = false; el.className = 'estado info'; el.textContent = 'Votación abierta hasta el ' + fmt(CONFIG.CIERRE) + '.'; }
+}
+
+/* ---------- Sesión ---------- */
+function decodificarJWT(t) {
+  const b = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+  const json = decodeURIComponent(atob(b).split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''));
+  return JSON.parse(json);
+}
+
+function iniciarSesion(usuario, token) {
+  estado.usuario = usuario; estado.token = token;
+  $('sinSesion').hidden = true; $('conSesion').hidden = false; $('botonGoogle').hidden = true;
+  $('uNombre').textContent = usuario.nombre || usuario.email;
+  $('uEmail').textContent = usuario.nombre ? '(' + usuario.email + ')' : '';
+  if (usuario.foto) { $('uFoto').src = usuario.foto; $('uFoto').hidden = false; }
+  consultarEstado();
+  actualizar();
+}
+
+function cerrarSesion() {
+  estado.usuario = null; estado.token = null; estado.yaVotado = false;
+  $('sinSesion').hidden = false; $('conSesion').hidden = true; $('botonGoogle').hidden = false;
+  $('uFoto').hidden = true;
+  if (!DEMO && window.google) google.accounts.id.disableAutoSelect();
+  actualizar();
+}
+
+function prepararAcceso() {
+  if (DEMO) {
+    $('avisoDemo').hidden = false;
+    const b = document.createElement('button');
+    b.className = 'btn btn-oscuro'; b.type = 'button'; b.textContent = 'Iniciar sesión con Google (demo)';
+    b.onclick = () => iniciarSesion({ nombre: 'Persona de prueba', email: 'prueba@gmail.com' }, 'demo');
+    $('botonGoogle').appendChild(b);
+    return;
+  }
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+  s.onload = () => {
+    google.accounts.id.initialize({
+      client_id: CONFIG.CLIENT_ID,
+      callback: r => {
+        const p = decodificarJWT(r.credential);
+        iniciarSesion({ nombre: p.name, email: p.email, foto: p.picture }, r.credential);
+      }
+    });
+    google.accounts.id.renderButton($('botonGoogle'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'es', shape: 'pill' });
+  };
+  document.head.appendChild(s);
+}
+
+/* ---------- Comunicación con la hoja ---------- */
+let demoVotado = false;
+async function api(accion, extra = {}) {
+  if (DEMO) {
+    await new Promise(r => setTimeout(r, 600));
+    if (accion === 'estado') return { ok: true, yaVotado: demoVotado };
+    if (demoVotado) return { ok: false, error: 'Esta cuenta ya ha votado.' };
+    demoVotado = true; return { ok: true };
+  }
+  const r = await fetch(CONFIG.SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ accion, token: estado.token, ...extra })
+  });
+  return r.json();
+}
+
+async function consultarEstado() {
+  try {
+    const r = await api('estado');
+    if (r.ok) { estado.yaVotado = !!r.yaVotado; actualizar(); }
+  } catch (e) { /* si falla, el servidor lo volverá a comprobar al enviar */ }
+}
+
+async function enviar() {
+  $('confirmar').close();
+  estado.enviando = true; actualizar();
+  try {
+    const r = await api('votar', { diseno: estado.seleccion });
+    if (r.ok) { estado.yaVotado = true; }
+    else {
+      alertaTexto(r.error || 'No se ha podido registrar el voto.');
+      if (/ya ha votado/i.test(r.error || '')) estado.yaVotado = true;
+      if (/sesión/i.test(r.error || '')) cerrarSesion();
+    }
+  } catch (e) {
+    alertaTexto('No hay conexión con el servidor. Inténtalo de nuevo en un momento.');
+  }
+  estado.enviando = false; actualizar();
+  $('envio').scrollIntoView({ block: 'center' });
+}
+
+function alertaTexto(msg) {
+  const t = $('envioTexto');
+  setTimeout(() => { t.textContent = msg; t.className = 'error'; }, 0);
+}
+
+/* ---------- Arranque ---------- */
+$('btnEnviar').onclick = () => { $('confNum').textContent = nombreDiseno(estado.seleccion); $('confirmar').showModal(); };
+$('btnVolver').onclick = () => $('confirmar').close();
+$('btnCerrarVisor').onclick = () => $('visor').close();
+$('btnConfirmar').onclick = enviar;
+$('btnSalir').onclick = cerrarSesion;
+document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+
+pintarGaleria();
+mostrarPeriodo();
+prepararAcceso();
+actualizar();
+</script>
+</body>
+</html>

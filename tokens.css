@@ -1,0 +1,33 @@
+:root {
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem; --text-display: 2.074rem; --text-section: 1.44rem; --text-title: 1rem; --text-lead: 1.0625rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150); --color-success-soft: oklch(86% 0.1 150);
+  --container: 1120px; --gutter: 40px; --gap-columns: 24px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
+  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+
+  /* Marca: escudo del Hogar Nueva España (azul y negro del escudo, rojo y oro de los cuarteles) */
+  --color-paper: oklch(97.4% 0.006 250); --color-paper-2: oklch(94.6% 0.01 250); --color-paper-3: oklch(91% 0.014 250);
+  --color-surface: oklch(99.3% 0.003 250);
+  --color-ink: oklch(21% 0.02 255); --color-ink-2: oklch(31% 0.025 255); --color-muted: oklch(47% 0.02 255);
+  --color-rule: oklch(86% 0.012 250);
+  --color-accent: oklch(51% 0.11 258); --color-accent-2: oklch(44% 0.11 258); --color-accent-soft: oklch(93% 0.03 258);
+  --color-accent-ink: oklch(98.5% 0.004 250);
+  --color-mark: oklch(55% 0.19 32);
+  --color-gold: oklch(82% 0.16 86);
+  --color-focus: oklch(44% 0.11 258); --color-focus-dark: oklch(82% 0.16 86);
+  --color-gold-2: oklch(87% 0.14 90);
+  --color-notice: oklch(95% 0.05 92); --color-notice-ink: oklch(40% 0.08 80); --color-notice-rule: oklch(86% 0.09 90);
+  --color-closed: oklch(94% 0.03 30); --color-closed-ink: oklch(42% 0.13 30);
+  --color-scrim: oklch(18% 0.02 255 / 0.62);
+  --color-shadow: oklch(18% 0.02 255 / 0.22);
+
+  --font-display: "Spectral", ui-serif, Georgia, serif;
+  --font-body: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-outlier: var(--font-body);
+  --display-weight: 600;
+  --radius-card: 6px; --radius-input: 8px; --radius-pill: 999px; --rule-hair: 1px; --shadow-card: none;
+  --tracking-display: -0.01em;
+}
