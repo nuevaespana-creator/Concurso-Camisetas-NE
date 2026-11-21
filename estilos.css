@@ -1,6 +1,6 @@
 /* Hallmark · shape: app screen · genre: editorial · theme: brand · redesign: full
  * paper: oklch(97.4% 0.006 250) · accent: oklch(51% 0.11 258) · display: Spectral · body: Public Sans
- * nav: top bar with the escudo and the account · signature: the papeleta, each design marked with an aspa and dropped in the urna · states: closed, not yet open, signed out, chosen, sending, voted, error
+ * nav: top bar with the escudo · signature: the papeleta, each design marked with an aspa and dropped in the urna · states: closed, not yet open, chosen, incomplete, sending, voted, error
  * axes: light/roman-serif/cool · posture: settled · contrast: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P4 H5 E4 S4 R4 V4 · weakest: P, a voting form has little to argue; it argues through the ballot metaphor, the aspa mark and the dark urna that holds the one choice */
 /* Hallmark · waive 39b · the ampliar control is the design image itself, a square photo button that opens the visor · a camiseta scan needs its full card width */
@@ -91,6 +91,16 @@ main { max-width: var(--container); margin-inline: auto; padding: var(--space-xl
 .enlace:hover { color: var(--color-ink); }
 .enlace:active { color: var(--color-accent); }
 
+/* Datos de quien vota, dentro de la urna */
+.datos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-md); align-items: end; max-width: 640px; }
+.campo { display: grid; gap: var(--space-2xs); }
+.campo label { font-size: var(--text-sm); color: var(--color-paper-3); }
+.campo input { min-height: 48px; width: 100%; padding: 0 var(--space-sm); border: var(--rule-hair) solid var(--color-muted); border-radius: var(--radius-input); background: var(--color-ink-2); color: var(--color-paper); font-size: var(--text-md); transition: border-color var(--dur-short) var(--ease-out); }
+.campo input:hover { border-color: var(--color-paper-3); }
+.campo input:focus-visible { outline: 2px solid var(--color-focus-dark); outline-offset: 1px; border-color: var(--color-gold); }
+.campo input:user-invalid { border-color: var(--color-gold); }
+.datos .btn-prim { grid-column: 1 / -1; justify-self: start; }
+
 /* Barra flotante */
 .flotante { position: fixed; left: 50%; bottom: var(--space-md); z-index: var(--z-sticky); display: flex; align-items: center; gap: var(--space-md); max-width: calc(100% - var(--space-lg)); padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-lg); border-radius: var(--radius-pill); background: var(--color-ink); color: var(--color-paper); box-shadow: 0 8px 24px var(--color-shadow); white-space: nowrap; transform: translate(-50%, 160%); transition: transform var(--dur-long) var(--ease-out); }
 .flotante.ver { transform: translate(-50%, 0); }
@@ -115,7 +125,8 @@ footer { max-width: var(--container); margin-inline: auto; padding: 0 var(--gutt
   .intro { grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); }
   .envio { grid-template-columns: minmax(0, 1fr); padding: var(--space-lg); gap: var(--space-lg); }
   .urna { width: 140px; }
-  .btn-prim { width: 100%; }
+  .btn-prim, .datos .btn-prim { width: 100%; }
+  .datos { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 40rem) {
   .marca span { font-size: var(--text-md); }

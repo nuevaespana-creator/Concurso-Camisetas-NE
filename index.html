@@ -16,15 +16,6 @@
 <header class="barra">
   <div class="barra-in">
     <a class="marca" href="./"><img src="logo.png" alt="" width="48" height="48"><span>Hogar Nueva España</span></a>
-    <div class="cuenta" aria-live="polite">
-      <div id="sinSesion"><p class="visually-hidden">Inicia sesión para votar.</p></div>
-      <div id="conSesion" class="usuario" hidden>
-        <img id="uFoto" src="logo.png" alt="" hidden>
-        <p>Votas como <strong id="uNombre"></strong> <span id="uEmail" class="correo"></span><br>
-          <button class="enlace" id="btnSalir" type="button">Usar otra cuenta</button></p>
-      </div>
-      <div id="botonGoogle"></div>
-    </div>
   </div>
 </header>
 
@@ -35,14 +26,14 @@
       <p class="lead">Mira todos los diseños del concurso y vota tu favorito. Cada persona puede votar una sola vez.</p>
     </div>
     <ol class="pasos">
-      <li><span>Inicia sesión arriba con tu cuenta de Google.</span></li>
-      <li><span>Marca tu favorito con «Votar este diseño».</span></li>
-      <li><span>Baja al final y pulsa «Enviar voto». No se puede cambiar.</span></li>
+      <li><span>Mira los diseños y marca tu favorito con «Votar este diseño».</span></li>
+      <li><span>Al final de la página, escribe tu nombre y tu correo.</span></li>
+      <li><span>Pulsa «Enviar voto». Solo se puede votar una vez.</span></li>
     </ol>
   </section>
 
   <div class="avisos">
-    <div id="avisoDemo" class="demo" hidden>Modo demostración: el inicio de sesión y el envío son simulados. No se guarda ningún voto.</div>
+    <div id="avisoDemo" class="demo" hidden>Modo demostración: el envío es simulado y no se guarda ningún voto.</div>
     <div id="estadoPeriodo" class="estado" hidden></div>
   </div>
 
@@ -59,13 +50,23 @@
     <div>
       <h2>Tu voto</h2>
       <p id="envioTexto">Elige un diseño pulsando «Votar este diseño».</p>
-      <button class="btn btn-prim" id="btnEnviar" type="button" disabled>Enviar voto</button>
+      <form id="formVoto" class="datos" novalidate>
+        <div class="campo">
+          <label for="fNombre">Nombre y apellidos</label>
+          <input id="fNombre" name="nombre" type="text" autocomplete="name" maxlength="80" required>
+        </div>
+        <div class="campo">
+          <label for="fEmail">Correo electrónico</label>
+          <input id="fEmail" name="email" type="email" autocomplete="email" inputmode="email" maxlength="120" required>
+        </div>
+        <button class="btn btn-prim" id="btnEnviar" type="submit" disabled>Enviar voto</button>
+      </form>
     </div>
   </section>
 </main>
 
 <footer>
-  <p>Organización Juvenil Española, Hogar Nueva España. Tu cuenta de Google solo se usa para comprobar que cada persona vota una vez.</p>
+  <p>Organización Juvenil Española, Hogar Nueva España. Tu nombre y tu correo solo se usan para comprobar que cada persona vota una vez y se borrarán al terminar el concurso.</p>
 </footer>
 
 <div class="flotante" id="flotante" aria-hidden="true">
@@ -98,19 +99,22 @@ const CONFIG = {
   NUM_DISENOS: 12,                 // cuántos diseños hay
   CARPETA: 'disenos/',             // imágenes: disenos/01.jpg, disenos/02.jpg...
   EXTENSION: '.jpg',
-  SCRIPT_URL: '',                  // URL de la aplicación web de Apps Script
-  CLIENT_ID: '',                   // ID de cliente OAuth de Google
+  SCRIPT_URL: '',                  // URL de la aplicación web de Apps Script (termina en /exec)
   APERTURA: '2026-12-01T00:00:00+01:00', // votación popular: 1 al 5 de diciembre
   CIERRE:   '2026-12-05T23:59:59+01:00'
 };
 /* =================================================== */
 
-const DEMO = !CONFIG.SCRIPT_URL || !CONFIG.CLIENT_ID;
+const DEMO = !CONFIG.SCRIPT_URL;
 const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, '0');
 const nombreDiseno = n => 'Diseño ' + pad(n);
+const estado = { seleccion: null, yaVotado: false, enviando: false, urnaVisible: false };
 
-const estado = { seleccion: null, token: null, usuario: null, yaVotado: false, enviando: false };
+const recordar = { // aviso en este navegador; quien decide es la Hoja
+  leer() { try { return localStorage.getItem('voto-camisetas-ne') === 'si'; } catch (e) { return false; } },
+  guardar() { try { localStorage.setItem('voto-camisetas-ne', 'si'); } catch (e) {} }
+};
 
 function periodo() {
   if (DEMO) return 'abierta'; // en demostración se ignoran las fechas
@@ -120,6 +124,7 @@ function periodo() {
   return 'abierta';
 }
 const fmt = s => new Date(s).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Madrid' });
+const emailValido = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 
 /* ---------- Galería ---------- */
 function pintarGaleria() {
@@ -165,151 +170,107 @@ function seleccionar(n) {
 }
 
 /* ---------- Estado de la interfaz ---------- */
-function actualizar() {
-  const p = periodo();
-  const sesion = !!estado.usuario;
+function datos() { return { nombre: $('fNombre').value.trim(), email: $('fEmail').value.trim() }; }
+
+function actualizar(mensaje) {
+  const p = periodo(), d = datos();
   const txt = $('envioTexto'), btn = $('btnEnviar');
+  const completos = d.nombre.length >= 3 && emailValido(d.email);
   txt.className = '';
 
-  if (p === 'antes') { txt.textContent = 'La votación todavía no está abierta.'; btn.disabled = true; }
-  else if (p === 'despues') { txt.textContent = 'La votación ha terminado. ¡Gracias por participar!'; btn.disabled = true; }
-  else if (estado.yaVotado) { txt.textContent = 'Tu voto está registrado. ¡Gracias por participar!'; txt.className = 'gracias'; btn.disabled = true; }
-  else if (!estado.seleccion) { txt.textContent = 'Elige un diseño pulsando «Votar este diseño».'; btn.disabled = true; }
-  else if (!sesion) { txt.innerHTML = `Has elegido el <span class="elegido">${nombreDiseno(estado.seleccion)}</span>. Inicia sesión arriba para poder enviarlo.`; btn.disabled = true; }
-  else { txt.innerHTML = `Has elegido el <span class="elegido">${nombreDiseno(estado.seleccion)}</span>.`; btn.disabled = estado.enviando; }
+  if (p === 'antes') txt.textContent = 'La votación se abre el ' + fmt(CONFIG.APERTURA) + '.';
+  else if (p === 'despues') txt.textContent = 'La votación ha terminado. ¡Gracias por participar!';
+  else if (estado.yaVotado) { txt.textContent = 'Tu voto está registrado. ¡Gracias por participar!'; txt.className = 'gracias'; }
+  else if (!estado.seleccion) txt.textContent = 'Elige un diseño pulsando «Votar este diseño».';
+  else if (!completos) txt.innerHTML = `Has elegido el <span class="elegido">${nombreDiseno(estado.seleccion)}</span>. Escribe tu nombre y tu correo para enviarlo.`;
+  else txt.innerHTML = `Has elegido el <span class="elegido">${nombreDiseno(estado.seleccion)}</span>.`;
+  if (mensaje) { txt.textContent = mensaje; txt.className = 'error'; }
 
+  const abierto = p === 'abierta' && !estado.yaVotado;
+  $('formVoto').hidden = !abierto;
+  btn.disabled = !(abierto && estado.seleccion && completos) || estado.enviando;
   btn.textContent = estado.enviando ? 'Enviando…' : 'Enviar voto';
   btn.setAttribute('aria-busy', estado.enviando);
+
   const urnaImg = $('urnaImg'), lleno = !!estado.seleccion;
   $('urna').classList.toggle('llena', lleno);
   urnaImg.hidden = !lleno; $('urnaVacia').hidden = lleno;
   if (lleno) { urnaImg.src = CONFIG.CARPETA + pad(estado.seleccion) + CONFIG.EXTENSION; urnaImg.alt = nombreDiseno(estado.seleccion); }
-  btn.hidden = estado.yaVotado;
 
-  const bloquear = estado.yaVotado || p !== 'abierta';
-  document.querySelectorAll('.btn-votar').forEach(b => b.disabled = bloquear);
+  document.querySelectorAll('.btn-votar').forEach(b => b.disabled = !abierto);
 
-  const f = $('flotante');
-  const verFlotante = estado.seleccion && !estado.yaVotado && p === 'abierta';
-  f.classList.toggle('ver', !!verFlotante);
-  f.setAttribute('aria-hidden', !verFlotante);
+  const f = $('flotante'), ver = !!estado.seleccion && abierto && !estado.urnaVisible;
+  f.classList.toggle('ver', ver);
+  f.setAttribute('aria-hidden', !ver);
   if (estado.seleccion) $('flotanteTexto').textContent = nombreDiseno(estado.seleccion) + ' elegido';
 }
 
 function mostrarPeriodo() {
   const p = periodo(), el = $('estadoPeriodo');
-  if (p === 'antes') { el.hidden = false; el.className = 'estado info'; el.textContent = 'La votación se abre el ' + fmt(CONFIG.APERTURA) + '.'; }
-  else if (p === 'despues') { el.hidden = false; el.className = 'estado cerrado'; el.textContent = 'La votación cerró el ' + fmt(CONFIG.CIERRE) + '.'; }
-  else { el.hidden = false; el.className = 'estado info'; el.textContent = 'Votación abierta hasta el ' + fmt(CONFIG.CIERRE) + '.'; }
+  el.hidden = false;
+  if (DEMO) { el.className = 'estado info'; el.textContent = 'Votación del ' + fmt(CONFIG.APERTURA) + ' al ' + fmt(CONFIG.CIERRE) + '.'; }
+  else if (p === 'antes') { el.className = 'estado info'; el.textContent = 'La votación se abre el ' + fmt(CONFIG.APERTURA) + '.'; }
+  else if (p === 'despues') { el.className = 'estado cerrado'; el.textContent = 'La votación cerró el ' + fmt(CONFIG.CIERRE) + '.'; }
+  else { el.className = 'estado info'; el.textContent = 'Votación abierta hasta el ' + fmt(CONFIG.CIERRE) + '.'; }
 }
 
-/* ---------- Sesión ---------- */
-function decodificarJWT(t) {
-  const b = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-  const json = decodeURIComponent(atob(b).split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''));
-  return JSON.parse(json);
-}
-
-function iniciarSesion(usuario, token) {
-  estado.usuario = usuario; estado.token = token;
-  $('sinSesion').hidden = true; $('conSesion').hidden = false; $('botonGoogle').hidden = true;
-  $('uNombre').textContent = usuario.nombre || usuario.email;
-  $('uEmail').textContent = usuario.nombre ? '(' + usuario.email + ')' : '';
-  if (usuario.foto) { $('uFoto').src = usuario.foto; $('uFoto').hidden = false; }
-  consultarEstado();
-  actualizar();
-}
-
-function cerrarSesion() {
-  estado.usuario = null; estado.token = null; estado.yaVotado = false;
-  $('sinSesion').hidden = false; $('conSesion').hidden = true; $('botonGoogle').hidden = false;
-  $('uFoto').hidden = true;
-  if (!DEMO && window.google) google.accounts.id.disableAutoSelect();
-  actualizar();
-}
-
-function prepararAcceso() {
-  if (DEMO) {
-    $('avisoDemo').hidden = false;
-    const b = document.createElement('button');
-    b.className = 'btn btn-oscuro'; b.type = 'button'; b.textContent = 'Iniciar sesión con Google (demo)';
-    b.onclick = () => iniciarSesion({ nombre: 'Persona de prueba', email: 'prueba@gmail.com' }, 'demo');
-    $('botonGoogle').appendChild(b);
-    return;
-  }
-  const s = document.createElement('script');
-  s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
-  s.onload = () => {
-    google.accounts.id.initialize({
-      client_id: CONFIG.CLIENT_ID,
-      callback: r => {
-        const p = decodificarJWT(r.credential);
-        iniciarSesion({ nombre: p.name, email: p.email, foto: p.picture }, r.credential);
-      }
-    });
-    google.accounts.id.renderButton($('botonGoogle'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'es', shape: 'pill' });
-  };
-  document.head.appendChild(s);
-}
-
-/* ---------- Comunicación con la hoja ---------- */
-let demoVotado = false;
-async function api(accion, extra = {}) {
+/* ---------- Envío a la Hoja ---------- */
+let demoCorreos = [];
+async function api(cuerpo) {
   if (DEMO) {
     await new Promise(r => setTimeout(r, 600));
-    if (accion === 'estado') return { ok: true, yaVotado: demoVotado };
-    if (demoVotado) return { ok: false, error: 'Esta cuenta ya ha votado.' };
-    demoVotado = true; return { ok: true };
+    const e = cuerpo.email.toLowerCase();
+    if (demoCorreos.includes(e)) return { ok: false, error: 'Este correo ya ha votado.' };
+    demoCorreos.push(e); return { ok: true };
   }
   const r = await fetch(CONFIG.SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ accion, token: estado.token, ...extra })
+    body: JSON.stringify(cuerpo)
   });
   return r.json();
-}
-
-async function consultarEstado() {
-  try {
-    const r = await api('estado');
-    if (r.ok) { estado.yaVotado = !!r.yaVotado; actualizar(); }
-  } catch (e) { /* si falla, el servidor lo volverá a comprobar al enviar */ }
 }
 
 async function enviar() {
   $('confirmar').close();
   estado.enviando = true; actualizar();
+  let mensaje;
   try {
-    const r = await api('votar', { diseno: estado.seleccion });
-    if (r.ok) { estado.yaVotado = true; }
+    const d = datos();
+    const r = await api({ accion: 'votar', diseno: estado.seleccion, nombre: d.nombre, email: d.email });
+    if (r.ok) { estado.yaVotado = true; if (!DEMO) recordar.guardar(); }
     else {
-      alertaTexto(r.error || 'No se ha podido registrar el voto.');
-      if (/ya ha votado/i.test(r.error || '')) estado.yaVotado = true;
-      if (/sesión/i.test(r.error || '')) cerrarSesion();
+      mensaje = r.error || 'No se ha podido registrar el voto.';
+      if (/ya ha votado/i.test(mensaje)) { estado.yaVotado = true; recordar.guardar(); }
     }
   } catch (e) {
-    alertaTexto('No hay conexión con el servidor. Inténtalo de nuevo en un momento.');
+    mensaje = 'No hay conexión con el servidor. Inténtalo de nuevo en un momento.';
   }
-  estado.enviando = false; actualizar();
+  estado.enviando = false; actualizar(mensaje);
   $('envio').scrollIntoView({ block: 'center' });
 }
 
-function alertaTexto(msg) {
-  const t = $('envioTexto');
-  setTimeout(() => { t.textContent = msg; t.className = 'error'; }, 0);
-}
-
 /* ---------- Arranque ---------- */
-$('btnEnviar').onclick = () => { $('confNum').textContent = nombreDiseno(estado.seleccion); $('confirmar').showModal(); };
+$('formVoto').addEventListener('submit', e => {
+  e.preventDefault();
+  if ($('btnEnviar').disabled) return;
+  $('confNum').textContent = nombreDiseno(estado.seleccion);
+  $('confirmar').showModal();
+});
+['fNombre', 'fEmail'].forEach(id => $(id).addEventListener('input', () => actualizar()));
 $('btnVolver').onclick = () => $('confirmar').close();
 $('btnCerrarVisor').onclick = () => $('visor').close();
 $('btnConfirmar').onclick = enviar;
-$('btnSalir').onclick = cerrarSesion;
 document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
 
+if ('IntersectionObserver' in window) { // la barra flotante se oculta cuando ya se ve la urna
+  const obsUrna = new IntersectionObserver(([e]) => { estado.urnaVisible = e.isIntersecting; actualizar(); });
+  obsUrna.observe($('envio'));
+}
+if (DEMO) $('avisoDemo').hidden = false;
+else if (recordar.leer()) estado.yaVotado = true;
 pintarGaleria();
 mostrarPeriodo();
-prepararAcceso();
 actualizar();
 </script>
 </body>

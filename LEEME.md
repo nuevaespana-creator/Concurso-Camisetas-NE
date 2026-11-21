@@ -1,53 +1,41 @@
 # Votación del concurso de camisetas · Hogar Nueva España
 
 Web en GitHub Pages + Hoja de Google como almacén de votos.
-Cada cuenta de Google puede votar **una sola vez**. Los diseños van numerados y los resultados solo se ven en la Hoja.
+Quien vota escribe su nombre y su correo; cada correo solo puede votar una vez. Los resultados solo se ven en la Hoja.
 
 ## Estructura
 ```
-index.html            → la web (configuración arriba del <script>)
-estilos.css, tokens.css, base.css → el diseño
+index.html                         → la web (configuración arriba del <script>)
+estilos.css, tokens.css, base.css  → el diseño
 logo.png
-disenos/01.jpg … 15.jpg
-apps-script/Codigo.gs → código para la Hoja de Google (no hace falta subirlo a GitHub)
+disenos/01.jpg … 12.jpg
+apps-script/Codigo.gs              → código para la Hoja de Google
 ```
 
-## Paso 1 · Las imágenes
-Sustituye las imágenes de ejemplo de `disenos/` por las reales: `01.jpg`, `02.jpg`… (si son .png, cambia `EXTENSION` en `index.html`).
-Ajusta `NUM_DISENOS` en `index.html` y en `Codigo.gs`.
-
-## Paso 2 · ID de cliente de Google (para "Iniciar sesión con Google")
-1. Entra en https://console.cloud.google.com con la cuenta del Hogar → crea un proyecto ("Votación camisetas").
-2. *APIs y servicios → Pantalla de consentimiento de OAuth*: tipo **Externo**, nombre de la app, correo de contacto. Sin permisos extra. Al terminar, pulsa **Publicar aplicación** (si se queda en "Prueba", solo podrán entrar las cuentas que añadas a mano).
-3. *Credenciales → Crear credenciales → ID de cliente de OAuth → Aplicación web*.
-   En **Orígenes de JavaScript autorizados** añade: `https://TU-USUARIO.github.io`
-4. Copia el ID (termina en `.apps.googleusercontent.com`).
-
-## Paso 3 · La Hoja de Google
-1. Crea una Hoja nueva ("Votos camisetas").
-2. *Extensiones → Apps Script* → borra lo que haya y pega `Codigo.gs`.
-3. Rellena `CLIENT_ID`, `APERTURA`, `CIERRE` y `NUM_DISENOS`. Guarda.
-4. Elige la función `prepararHoja` y pulsa ▶ Ejecutar (te pedirá permisos: acéptalos). Se crean las pestañas *Votos* y *Resultados*.
-5. *Implementar → Nueva implementación → Aplicación web*:
+## Paso 1 · La Hoja de Google
+1. Crea una Hoja nueva ("Votos camisetas") con la cuenta del Hogar.
+2. *Extensiones → Apps Script* → borra lo que haya y pega `Codigo.gs`. Guarda.
+3. Elige la función `prepararHoja` y pulsa ▶ Ejecutar. Acepta los permisos (si sale "Google no ha verificado esta aplicación": *Configuración avanzada → Ir a…*; es tu propio script). Se crean las pestañas *Votos* y *Resultados*.
+4. *Implementar → Nueva implementación → ⚙ → Aplicación web*:
    - Ejecutar como: **Yo**
    - Quién tiene acceso: **Cualquier usuario**
-6. Copia la URL que termina en `/exec`.
+5. Copia la URL que termina en `/exec`.
 
-> Si cambias el código después, usa *Implementar → Gestionar implementaciones → editar → Nueva versión* para que la URL siga siendo la misma.
+> Si cambias el código después: *Implementar → Gestionar implementaciones → ✏ editar → Versión: Nueva versión*. Así la URL no cambia.
 
-## Paso 4 · Conectar la web
-En `index.html`, dentro de `CONFIG`, pega `SCRIPT_URL` (la URL `/exec`) y `CLIENT_ID`, y pon las mismas fechas que en la Hoja.
-Mientras alguno de los dos esté vacío, la web funciona en **modo demostración** (no guarda nada).
+## Paso 2 · Conectar la web
+En `index.html`, dentro de `CONFIG`, pega la URL en `SCRIPT_URL` y súbelo a GitHub.
+Mientras `SCRIPT_URL` esté vacío, la web funciona en **modo demostración** (no guarda nada).
 
-## Paso 5 · Publicar en GitHub Pages
-1. Crea un repositorio público (p. ej. `camisetas-ne`) y sube `index.html`, `estilos.css`, `tokens.css`, `base.css`, `logo.png` y la carpeta `disenos/`.
-2. *Settings → Pages → Deploy from a branch → main / (root)*.
-3. La web quedará en `https://TU-USUARIO.github.io/camisetas-ne/`.
+## Paso 3 · Probar antes de difundir
+Vota y comprueba que aparece en *Votos*. Intenta votar otra vez con el mismo correo: debe decir "Este correo ya ha votado". Borra las filas de prueba.
 
-## Paso 6 · Probar antes de difundir
-Vota con tu cuenta y comprueba que aparece en *Votos*. Intenta votar otra vez: debe decir "Esta cuenta ya ha votado". Borra esa fila de prueba y comparte el enlace.
+## Cómo se evita el voto doble
+- La Hoja rechaza un correo que ya ha votado. En Gmail ignora puntos y "+etiquetas" (`ana.perez+1@gmail.com` cuenta como `anaperez@gmail.com`).
+- El navegador recuerda que ya se votó desde ese dispositivo.
+- Los correos **no se verifican**: alguien podría inventarse correos para votar más de una vez. Antes de anunciar el ganador, revisa la pestaña *Votos* (nombres falsos, correos raros, muchos votos seguidos al mismo diseño en pocos minutos) y borra lo que no sea válido. Para eso están previstos los días de recuento del 6 al 18 de diciembre.
 
 ## Notas
-- Las fechas que mandan son las de `Codigo.gs`: aunque alguien manipule la web, el servidor rechaza votos fuera de plazo, duplicados o de diseños que no existen.
-- Quien vote necesita una cuenta de Google.
-- Al terminar el concurso, borra la pestaña *Votos* (contiene correos) cuando ya no la necesites.
+- Las fechas que mandan son las de `Codigo.gs`: el servidor rechaza votos fuera de plazo o de diseños que no existen, aunque alguien manipule la web.
+- Al terminar el concurso, borra la pestaña *Votos* (contiene nombres y correos).
+- No subas a GitHub la tabla de correspondencia de diseños y autores: el repositorio es público.
